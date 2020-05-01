@@ -1,0 +1,51 @@
+
+<div class="container-fluid w-auto, h-auto">
+
+    <table id="bookmarktable" class="table table-striped table-bordered">
+        <thead class="thead-light">
+            <tr>
+                <th>Title</th>
+                <th>Link</th>
+                <th>Click Count</th>
+                <th>Last Click</th>
+                <th>Tags</th>
+                <th>History</th>
+                <!--
+                    <th>Operation</th>
+                -->
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let bookmark of bookmarkObjects">
+                <td>
+                    {{ bookmark.name }}
+                </td>
+                <td>
+                    {{ bookmark.url }}
+                </td>
+                <td>
+                    {{ bookmark.clickcount }}
+                </td>
+                <td>
+                    {{ bookmark.lastclick }}
+                </td>
+                <td>
+                    <tr *ngFor="let tag of bookmark.tags">
+                        {{ tag.name }}
+                    </tr>
+                </td>
+                <td>
+                    <tr *ngFor="let his of bookmark.history">
+                        {{ his.description }}
+                    </tr>
+                </td>
+                <!--
+                <td>
+                    <img style="width:16px;height:16px;margin:0 1px" src="assets/images/delete.png">
+                    <img style="width:16px;height:16px;margin:0 1px" src="assets/images/edit-bookmark.png">
+                    <img style="width:16px;height:16px;margin:0 1px" src="assets/images/detail.png">
+                </td>-->
+            </tr>
+        </tbody>
+    </table>
+</div>

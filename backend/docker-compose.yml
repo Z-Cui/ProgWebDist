@@ -1,0 +1,110 @@
+version: '3'
+
+services:
+
+  front-end:
+    image: cuiz/front-end:1
+    container_name: front-end
+    ports:
+      - 4200:4200
+  
+  eureka-registry:
+    image: cuiz/eureka-registry:1
+    container_name: eureka-registry
+    ports:
+      - 8761:8761
+    environment:
+      - LOGGING_LEVEL_COM_NETFLIX_DISCOVERY=DEBUG
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-registry:8761/eureka
+  
+  zuul-gateway:
+    image: cuiz/zuul-gateway:1
+    container_name: zuul-gateway
+    ports:
+      - 8085:8085
+    depends_on:
+      - eureka-registry
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-registry:8761/eureka
+      - ZUUL_ROUTES_USER-DATABASE_URL=http://user-database:8081
+      - ZUUL_ROUTES_USER-SERVICE_URL=http://user-service:8082
+      - ZUUL_ROUTES_BOOKMARK-DATABASE_URL=http://bookmark-database:8083
+    links:
+      - eureka-registry
+
+  user-mysql:
+    image: cuiz/user-mysql:2
+    container_name: user-mysql
+    restart: always
+    environment:
+      - MYSQL_DATABASE=db_users
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=12345678
+      - MYSQL_ROOT_PASSWORD=12345678
+    ports:
+      - 3307:3306
+    volumes:
+      - user-mysql:/var/lib/mysql
+
+
+  user-database:
+    image: cuiz/user-database:1
+    container_name: user-database
+    ports:
+      - 8081:8081
+    depends_on:
+      - user-mysql
+      - eureka-registry
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-mysql/db_users?user=root&password=12345678&serverTimezone=UTC&createDatabaseIfNotExist=true&useSSL=false
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-registry:8761/eureka
+    links:
+      - eureka-registry
+
+  user-service:
+    image: cuiz/user-service:1
+    container_name: user-service
+    ports:
+      - 8082:8082
+    depends_on:
+      - user-database
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-registry:8761/eureka
+    links:
+      - eureka-registry
+
+  bookmark-mysql:
+    image: cuiz/bookmark-mysql:2
+    container_name: bookmark-mysql
+    restart: always
+    environment:
+      - MYSQL_DATABASE=db_bookmarks
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=12345678
+      - MYSQL_ROOT_PASSWORD=12345678
+    ports:
+      - 3308:3306
+    volumes:
+      - bookmark-mysql:/var/lib/mysql
+
+  bookmark-database:
+    image: cuiz/bookmark-database:1
+    container_name: bookmark-database
+    ports:
+      - 8083:8083
+    depends_on:
+      - bookmark-mysql
+      - eureka-registry
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://bookmark-mysql/db_bookmarks?user=root&password=12345678&serverTimezone=UTC&createDatabaseIfNotExist=true&useSSL=false
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-registry:8761/eureka
+    links:
+      - eureka-registry
+
+volumes:
+  user-mysql:
+  
+  bookmark-mysql:
+
+
+
