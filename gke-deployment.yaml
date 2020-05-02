@@ -1,0 +1,518 @@
+###### eureka-registry Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: eureka-registry
+  name: eureka-registry
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: eureka-registry
+    spec:
+      containers:
+      - env:
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://eureka-registry.default.svc.cluster.local:8761/eureka
+        - name: LOGGING_LEVEL_COM_NETFLIX_DISCOVERY
+          value: DEBUG
+        image: cuiz/eureka-registry:1
+        name: eureka-registry
+        ports:
+        - containerPort: 8761
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+###### eureka-registry Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: eureka-registry
+  name: eureka-registry
+spec:
+  ports:
+  - name: "8761"
+    port: 8761
+    targetPort: 8761
+  selector:
+    io.kompose.service: eureka-registry
+status:
+  loadBalancer: {}
+
+###### zuul-gateway Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: zuul-gateway
+  name: zuul-gateway
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: zuul-gateway
+    spec:
+      containers:
+      - env:
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://eureka-registry.default.svc.cluster.local:8761/eureka
+        - name: ZUUL_ROUTES_BOOKMARK-DATABASE_URL
+          value: http://bookmark-database.default.svc.cluster.local:8083
+        - name: ZUUL_ROUTES_USER-DATABASE_URL
+          value: http://user-database.default.svc.cluster.local:8081
+        - name: ZUUL_ROUTES_USER-SERVICE_URL
+          value: http://user-service.default.svc.cluster.local:8082
+        image: cuiz/zuul-gateway:1
+        name: zuul-gateway
+        ports:
+        - containerPort: 8085
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+###### zuul-gateway Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: zuul-gateway
+  name: zuul-gateway
+spec:
+  ports:
+  - name: "8085"
+    port: 8085
+    targetPort: 8085
+  selector:
+    io.kompose.service: zuul-gateway
+status:
+  loadBalancer: {}
+
+
+###### bookmark-mysql Persistent Volume Claim ######
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: bookmark-mysql
+  name: bookmark-mysql
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+status: {}
+
+###### bookmark-mysql Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: bookmark-mysql
+  name: bookmark-mysql
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: bookmark-mysql
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_DATABASE
+          value: db_bookmarks
+        - name: MYSQL_PASSWORD
+          value: "12345678"
+        - name: MYSQL_ROOT_PASSWORD
+          value: "12345678"
+        - name: MYSQL_USER
+          value: root
+        image: cuiz/user-mysql:2
+        name: bookmark-mysql
+        ports:
+        - containerPort: 3306
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: bookmark-mysql
+      restartPolicy: Always
+      volumes:
+      - name: bookmark-mysql
+        persistentVolumeClaim:
+          claimName: bookmark-mysql
+status: {}
+
+###### bookmark-mysql Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: bookmark-mysql
+  name: bookmark-mysql
+spec:
+  ports:
+  - name: "3308"
+    port: 3308
+    targetPort: 3306
+  selector:
+    io.kompose.service: bookmark-mysql
+status:
+  loadBalancer: {}
+
+###### bookmark-database Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: bookmark-database
+  name: bookmark-database
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: bookmark-database
+    spec:
+      containers:
+      - env:
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://eureka-registry.default.svc.cluster.local:8761/eureka
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:mysql://bookmark-mysql/db_bookmarks?user=root&password=12345678&serverTimezone=UTC&createDatabaseIfNotExist=true&useSSL=false
+        image: cuiz/bookmark-database:1
+        name: bookmark-database
+        ports:
+        - containerPort: 8083
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+###### bookmark-database Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: bookmark-database
+  name: bookmark-database
+spec:
+  ports:
+  - name: "8083"
+    port: 8083
+    targetPort: 8083
+  selector:
+    io.kompose.service: bookmark-database
+status:
+  loadBalancer: {}
+
+
+###### user-database Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-database
+  name: user-database
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: user-database
+    spec:
+      containers:
+      - env:
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://eureka-registry.default.svc.cluster.local:8761/eureka
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:mysql://user-mysql/db_users?user=root&password=12345678&serverTimezone=UTC&createDatabaseIfNotExist=true&useSSL=false
+        image: cuiz/user-database:1
+        name: user-database
+        ports:
+        - containerPort: 8081
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+###### user-database Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-database
+  name: user-database
+spec:
+  ports:
+  - name: "8081"
+    port: 8081
+    targetPort: 8081
+  selector:
+    io.kompose.service: user-database
+status:
+  loadBalancer: {}
+
+###### user-mysql PVC ######
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-mysql
+  name: user-mysql
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+status: {}
+
+
+###### user-mysql Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-mysql
+  name: user-mysql
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: user-mysql
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_DATABASE
+          value: db_users
+        - name: MYSQL_PASSWORD
+          value: "12345678"
+        - name: MYSQL_ROOT_PASSWORD
+          value: "12345678"
+        - name: MYSQL_USER
+          value: root
+        image: cuiz/user-mysql:2
+        name: user-mysql
+        ports:
+        - containerPort: 3306
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: user-mysql
+      restartPolicy: Always
+      volumes:
+      - name: user-mysql
+        persistentVolumeClaim:
+          claimName: user-mysql
+status: {}
+
+###### user-mysql Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-mysql
+  name: user-mysql
+spec:
+  ports:
+  - name: "3307"
+    port: 3307
+    targetPort: 3306
+  selector:
+    io.kompose.service: user-mysql
+status:
+  loadBalancer: {}
+
+###### user-service Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-service
+  name: user-service
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: user-service
+    spec:
+      containers:
+      - env:
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://eureka-registry.default.svc.cluster.local:8761/eureka
+        image: cuiz/user-service:1
+        name: user-service
+        ports:
+        - containerPort: 8082
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+###### user-service Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: user-service
+  name: user-service
+spec:
+  ports:
+  - name: "8082"
+    port: 8082
+    targetPort: 8082
+  selector:
+    io.kompose.service: user-service
+status:
+  loadBalancer: {}
+
+
+###### front-end Deployment ######
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: front-end
+  name: front-end
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: front-end
+    spec:
+      containers:
+      - image: cuiz/front-end:1
+        name: front-end
+        ports:
+        - containerPort: 4200
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+
+###### front-end Service ######
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: front-end
+  name: front-end
+spec:
+  ports:
+  - name: "4200"
+    port: 4200
+    targetPort: 4200
+  selector:
+    io.kompose.service: front-end
+status:
+  loadBalancer: {}
+
+
+
